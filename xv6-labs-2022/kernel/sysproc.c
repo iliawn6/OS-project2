@@ -95,15 +95,16 @@ sys_uptime(void)
 int
 sys_settickets(void)
 {
-    int tickets;
+    int tickets_count;
 
-    if(argint(0, &tickets) < 0)
+    if(argint(0, &tickets_count) < 0)
         return -1;
 
-    if(tickets < 1 || tickets > MAX_TICKETS)
+    if(tickets_count < 1 || tickets_count > MAX_TICKETS)
+
         return -1;
 
-    proc->num_tickets = tickets;
+    proc->tickets = tickets;
     return 0;
 }
 

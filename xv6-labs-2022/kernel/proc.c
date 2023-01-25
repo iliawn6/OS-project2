@@ -5,12 +5,22 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "random.h"
 
 struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
 
 struct proc *initproc;
+
+//TODO: pstat
+struct pstat {
+    int num_processes; //count processes that are not UNUSED
+    int inuse[NPROC]; // whether this slot of the process table is in use (1 or 0)
+    int tickets[NPROC]; // the number of tickets each process has
+    int pid[NPROC]; // the PID of each process
+    int ticks[NPROC]; // the number of times each process has run
+};
 
 int nextpid = 1;
 struct spinlock pid_lock;
@@ -316,6 +326,9 @@ fork(void)
 
   acquire(&wait_lock);
   np->parent = p;
+  np->tickets = p->tickets;
+  np->ticks = 0;
+  //TODO: check
   release(&wait_lock);
 
   acquire(&np->lock);
@@ -446,30 +459,74 @@ scheduler(void)
 {
   struct proc *p;
   struct cpu *c = mycpu();
-  
+  int count = 0;
+  long golden_ticket = 0;
+  int totalTickets = 0;
   c->proc = 0;
+
   for(;;){
     // Avoid deadlock by ensuring that devices can interrupt.
     intr_on();
+        acquire(&p->lock);
+        golden_ticket = 0;
+        count = 0;
+        totalTickets = 0;
 
-    for(p = proc; p < &proc[NPROC]; p++) {
-      acquire(&p->lock);
-      if(p->state == RUNNABLE) {
+      //calculate Total number of tickets for runnable processes
+      totalTickets = lottery_Total();
+
+      //pick a random ticket from total available tickets
+      golden_ticket = random() % (totalTickets + 1);
+      //TODO: fair random number??
+
+
+      for(p = proc; p < &proc[NPROC]; p++) {
+      //acquire(&p->lock);
+      //TODO: check acquire
+      //if(p->state == RUNNABLE)
+      count += p->tickets;
+      if(p->state == RUNNABLE && count >= golden_ticket ) {
+          //TODO: check if statement
         // Switch to chosen process.  It is the process's job
         // to release its lock and then reacquire it
         // before jumping back to us.
         p->state = RUNNING;
         c->proc = p;
+        int start_ticks = ticks;
+
         swtch(&c->context, &p->context);
+
+        int endTicks = ticks - start_ticks;
+        p->ticks += endTicks;
+
+        //TODO: check endTicks
 
         // Process is done running for now.
         // It should have changed its p->state before coming back.
         c->proc = 0;
       }
-      release(&p->lock);
+      //release(&p->lock);
+      //TODO: check release
     }
+    release(&p->lock);
   }
 }
+
+int
+lottery_Total(void){
+    struct proc *p;
+    int ticketTotal=0;
+
+//loop over process table and increment total tickets if a runnable process is found
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+    {
+        if(p->state==RUNNABLE){
+            ticketTotal+=p->tickets;
+        }
+    }
+    return ticketTotal;          // returning total number of tickets for runnable processes
+}
+
 
 // Switch to scheduler.  Must hold only p->lock
 // and have changed proc->state. Saves and restores
