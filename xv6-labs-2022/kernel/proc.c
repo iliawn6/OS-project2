@@ -681,3 +681,37 @@ procdump(void)
     printf("\n");
   }
 }
+
+int
+getpinfo(struct pstat *ps){
+
+    //If invalid pointer is passed
+    if(ps == NULL) {
+        return -1;
+    }
+
+    struct proc *p;
+    int i;
+
+    //Populate the pstat structure with process information
+    acquire(&ptable.lock);
+    for(i = 0, p = ptable.proc; i < NPROC && p < &ptable.proc[NPROC]; i++, p++){
+        //Set inuse or not
+        if(p->state != UNUSED){
+            ps->inuse[i] = 1; //Process is in use
+        }
+        else{
+            ps->inuse[i] = 0; //Process is not in use
+        }
+
+        //Set number of tickets assigned to the process
+        ps->tickets[i] = p->num_tickets;
+        //Set the PID
+        ps->pid[i] = p->pid;
+        //Set the number of ticks
+        ps->ticks[i] = p->num_ticks;
+    }
+    release(&ptable.lock);
+
+    return 0;
+}
