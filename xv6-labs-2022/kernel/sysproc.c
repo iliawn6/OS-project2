@@ -92,13 +92,28 @@ sys_uptime(void)
   return xticks;
 }
 
-int sys_settickets(void)
+int
+sys_settickets(void)
 {
-    struct proc *p;
-    p=myproc();
-    int n;
-    if(argint(0, &n) < 0)
+    int tickets;
+
+    if(argint(0, &tickets) < 0)
         return -1;
-    p->tickets = n;
-    return n;
+
+    if(tickets < 1 || tickets > MAX_TICKETS)
+        return -1;
+
+    proc->num_tickets = tickets;
+    return 0;
+}
+
+int
+sys_getpinfo(void){
+    struct pstat *p;
+
+    if(argptr(0, (void*)&p, sizeof(*p)) < 0){
+        return -1;
+    }
+
+    return getpinfo(p);
 }

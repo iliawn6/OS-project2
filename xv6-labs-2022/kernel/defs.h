@@ -1,3 +1,5 @@
+#define MAX_TICKETS 1000
+
 struct buf;
 struct context;
 struct file;
