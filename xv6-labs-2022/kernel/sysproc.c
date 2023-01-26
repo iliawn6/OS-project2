@@ -113,6 +113,9 @@ int
 sys_getpinfo(void){
     struct pstat *p;
 
+    if (ps == NULL)
+        return -1; // return -1 if ps is NULL
+
     if(argptr(0, (void*)&p, sizeof(*p)) < 0){
         return -1;
     }
