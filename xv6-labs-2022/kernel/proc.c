@@ -758,8 +758,9 @@ settickets(int n)
 }
 
 int
-getpinfo(struct pstat *ps){
+getpinfo(uint64 ps_address){
     struct proc *p;
+    struct pstat *ps;
     int i;
 
     //Populate the pstat structure with process information
@@ -781,6 +782,10 @@ getpinfo(struct pstat *ps){
         ps->ticks[i] = p->ticks;
         release(&p->lock);
     }
+
+    if(copyout(myproc()->pagetable, ps_address, (char *)&ps, sizeof(ps)) < 0)
+        return -1;
+
 
     return 0;
 }

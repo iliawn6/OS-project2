@@ -109,12 +109,11 @@ sys_settickets(void)
 
 int
 sys_getpinfo(void){
-    struct pstat *ps;
+    uint64 struct_addr;
 
-    argaddr(0, (void*)&ps);
+    argaddr(0, &struct_addr);
 
-    if (ps == NULL)
-        return -1;
+    getpinfo(struct_addr);
 
-    return getpinfo(ps);
+    return 1;
 }
