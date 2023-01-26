@@ -6,6 +6,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "pstat.h"
+#include "stddef.h"
 
 uint64
 sys_exit(void)
@@ -96,6 +97,7 @@ sys_uptime(void)
 int
 sys_settickets(void)
 {
+    struct proc *p;
     int tickets_count;
 
     if(argint(0, &tickets_count) < 0)
@@ -105,20 +107,20 @@ sys_settickets(void)
 
         return -1;
 
-    proc->tickets = tickets;
+    p->tickets = tickets_count;
     return 0;
 }
 
 int
 sys_getpinfo(void){
-    struct pstat *p;
+    struct pstat *ps;
 
     if (ps == NULL)
         return -1; // return -1 if ps is NULL
 
-    if(argptr(0, (void*)&p, sizeof(*p)) < 0){
+    if(argptr(0, (void*)&ps, sizeof(*ps)) < 0){
         return -1;
     }
 
-    return getpinfo(p);
+    return getpinfo(ps);
 }
