@@ -754,11 +754,11 @@ getpinfo(struct pstat *ps){
         }
 
         //Set number of tickets assigned to the process
-        ps->tickets[i] = p->num_tickets;
+        ps->tickets[i] = p->tickets;
         //Set the PID
         ps->pid[i] = p->pid;
         //Set the number of ticks
-        ps->ticks[i] = p->num_ticks;
+        ps->ticks[i] = p->ticks;
     }
     release(&ptable.lock);
 
