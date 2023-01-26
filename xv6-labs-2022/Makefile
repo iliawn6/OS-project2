@@ -189,9 +189,6 @@ UPROGS=\
 	$U/_grind\
 	$U/_wc\
 	$U/_zombie\
-    $U/_setticket\
-#TODO add user programs
-
 
 ifeq ($(LAB),$(filter $(LAB), lock))
 UPROGS += \
