@@ -468,7 +468,7 @@ scheduler(void)
         struct proc *p2;
 
         //loop over process table and increment total tickets if a runnable process is found
-        for(p2 = ptable.proc; p2 < &ptable.proc[NPROC]; p2++)
+        for(p2 = proc; p2 < &proc[NPROC]; p2++)
           {
             if(p2->state==RUNNABLE){
                   totalTickets+=p2->tickets;
