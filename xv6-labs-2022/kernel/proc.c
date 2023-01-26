@@ -5,6 +5,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "pstat.h"
 #include "random.h"
 
 struct cpu cpus[NCPU];
@@ -12,15 +13,6 @@ struct cpu cpus[NCPU];
 struct proc proc[NPROC];
 
 struct proc *initproc;
-
-//TODO: pstat
-struct pstat {
-    int num_processes; //count processes that are not UNUSED
-    int inuse[NPROC]; // whether this slot of the process table is in use (1 or 0)
-    int tickets[NPROC]; // the number of tickets each process has
-    int pid[NPROC]; // the PID of each process
-    int ticks[NPROC]; // the number of times each process has run
-};
 
 int nextpid = 1;
 struct spinlock pid_lock;

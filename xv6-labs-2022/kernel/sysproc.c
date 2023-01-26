@@ -112,11 +112,9 @@ int
 sys_getpinfo(void){
     struct pstat *p;
 
-    //TODO argaddr argptr
-    if(argaddr(0, (void*)&p) < 0){
+    if(argptr(0, (void*)&p, sizeof(*p)) < 0){
         return -1;
     }
 
-    //TODO check this
-    return getpinfo((void*)&p);
+    return getpinfo(p);
 }
