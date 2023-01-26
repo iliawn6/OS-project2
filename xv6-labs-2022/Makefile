@@ -30,7 +30,8 @@ OBJS = \
   $K/sysfile.o \
   $K/kernelvec.o \
   $K/plic.o \
-  $K/virtio_disk.o
+  $K/virtio_disk.o \
+  $K/random.o
 
 OBJS_KCSAN = \
   $K/start.o \
@@ -62,7 +63,7 @@ endif
 
 # riscv64-unknown-elf- or riscv64-linux-gnu-
 # perhaps in /opt/riscv/bin
-#TOOLPREFIX = 
+#TOOLPREFIX =
 
 # Try to infer the correct TOOLPREFIX if not set
 ifndef TOOLPREFIX
@@ -188,7 +189,6 @@ UPROGS=\
 	$U/_grind\
 	$U/_wc\
 	$U/_zombie\
-	$U/_random\
     $U/_setticket\
 #TODO add user programs
 
@@ -266,7 +266,7 @@ fs.img: mkfs/mkfs README $(UEXTRA) $(UPROGS)
 
 -include kernel/*.d user/*.d
 
-clean: 
+clean:
 	rm -f *.tex *.dvi *.idx *.aux *.log *.ind *.ilg \
 	*/*.o */*.d */*.asm */*.sym \
 	$U/initcode $U/initcode.out $K/kernel fs.img \

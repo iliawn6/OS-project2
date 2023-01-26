@@ -38,4 +38,3 @@ entry("sleep");
 entry("uptime");
 entry("settickets");
 entry("getpinfo");
-//TODO user programs
