@@ -487,9 +487,7 @@ scheduler(void)
       for(p = proc; p < &proc[NPROC]; p++) {
       //acquire(&p->lock);
       //TODO: check acquire
-      if(p->state == RUNNABLE) {
-          count += p->tickets;
-      }
+      count += p->tickets;
       if(p->state == RUNNABLE && count >= golden_ticket ) {
           //TODO: check if statement
         // Switch to chosen process.  It is the process's job
@@ -768,6 +766,7 @@ getpinfo(uint64 ps_address){
         //Set inuse or not
         acquire(&p->lock);
         if(p->state != UNUSED){
+            ps->num_processes++;
             ps->inuse[i] = 1; //Process is in use
         }
         else{

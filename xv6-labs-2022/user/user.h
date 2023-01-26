@@ -24,7 +24,7 @@ char* sbrk(int);
 int sleep(int);
 int uptime(void);
 int settickets(int ticket);
-int getpinfo(struct pstat *);
+int getpinfo(uint64 ps_address);
 //TODO user programs
 
 // ulib.c
