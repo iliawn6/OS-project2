@@ -97,30 +97,24 @@ sys_uptime(void)
 int
 sys_settickets(void)
 {
-    struct proc *p;
     int tickets_count;
 
-    if(argint(0, &tickets_count) < 0)
-        return -1;
+    argint(0, &tickets_count);
 
     if(tickets_count < 1 || tickets_count > MAX_TICKETS)
-
         return -1;
 
-    p->tickets = tickets_count;
-    return 0;
+    return settickets(tickets_count);
 }
 
 int
 sys_getpinfo(void){
     struct pstat *ps;
 
-    if (ps == NULL)
-        return -1; // return -1 if ps is NULL
+    argaddr(0, (void*)&ps);
 
-    if(argptr(0, (void*)&ps, sizeof(*ps)) < 0){
+    if (ps == NULL)
         return -1;
-    }
 
     return getpinfo(ps);
 }

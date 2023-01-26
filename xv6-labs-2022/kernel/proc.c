@@ -749,6 +749,15 @@ procdump(void)
 }
 
 int
+settickets(int n)
+{
+    acquire(&proc->lock);
+    proc->tickets = n;
+    release(&proc->lock);
+    return 0; // return 0 on success
+}
+
+int
 getpinfo(struct pstat *ps){
     struct proc *p;
     int i;
