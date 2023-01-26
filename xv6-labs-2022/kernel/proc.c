@@ -462,10 +462,22 @@ scheduler(void)
         acquire(&p->lock);
         golden_ticket = 0;
         count = 0;
+
         totalTickets = 0;
 
+        struct proc *p2;
+
+        //loop over process table and increment total tickets if a runnable process is found
+        for(p2 = ptable.proc; p2 < &ptable.proc[NPROC]; p2++)
+          {
+            if(p2->state==RUNNABLE){
+                  totalTickets+=p2->tickets;
+            }
+          }
+
+
       //calculate Total number of tickets for runnable processes
-      totalTickets = lottery_Total();
+      //totalTickets = lottery_Total();
 
       //pick a random ticket from total available tickets
       golden_ticket = random() % (totalTickets + 1);
@@ -475,8 +487,9 @@ scheduler(void)
       for(p = proc; p < &proc[NPROC]; p++) {
       //acquire(&p->lock);
       //TODO: check acquire
-      //if(p->state == RUNNABLE)
-      count += p->tickets;
+      if(p->state == RUNNABLE) {
+          count += p->tickets;
+      }
       if(p->state == RUNNABLE && count >= golden_ticket ) {
           //TODO: check if statement
         // Switch to chosen process.  It is the process's job
@@ -504,6 +517,8 @@ scheduler(void)
   }
 }
 
+
+/*
 int
 lottery_Total(void){
     struct proc *p;
@@ -516,8 +531,10 @@ lottery_Total(void){
             ticketTotal+=p->tickets;
         }
     }
+
     return ticketTotal;          // returning total number of tickets for runnable processes
 }
+ */
 
 
 // Switch to scheduler.  Must hold only p->lock
