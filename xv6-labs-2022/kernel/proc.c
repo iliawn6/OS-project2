@@ -173,8 +173,8 @@ freeproc(struct proc *p)
   p->killed = 0;
   p->xstate = 0;
   p->state = UNUSED;
-  p->ticks = 0;
-  p->tickets = 0;
+  // p->ticks = 0;
+  // p->tickets = 0;
 }
 
 // Create a user page table for a given process, with no user memory,
@@ -328,13 +328,7 @@ fork(void)
 
   acquire(&np->lock);
   np->state = RUNNABLE;
-  release(&np->lock);
-
-  acquire(&np->lock);
   np->tickets = p->tickets; //Set to son process the tickets of its father
-  release(&np->lock);
-
-  acquire(&np->lock);
   np->ticks = 0;   //Set ticks value to 0
   release(&np->lock);
 
@@ -450,66 +444,111 @@ wait(uint64 addr)
   }
 }
 
-// Each CPU calls scheduler() after setting itself up.
-// Scheduler never returns.  It loops, doing:
-//  - choose a process to run based on lottery scheduler.
-//  - swtch to start running that process.
-//  - eventually that process transfers control
-//    via swtch back to the scheduler.
+// static unsigned random_seed = 1;
+
+#define RANDOM_MAX ((1u << 31u) - 1u)
+unsigned lcg_parkmiller(unsigned *state)
+{
+  const unsigned N = 0x7fffffff;
+  const unsigned G = 48271u;
+
+  /*
+      Indirectly compute state*G%N.
+
+      Let:
+        div = state/(N/G)
+        rem = state%(N/G)
+
+      Then:
+        rem + div*(N/G) == state
+        rem*G + div*(N/G)*G == state*G
+
+      Now:
+        div*(N/G)*G == div*(N - N%G) === -div*(N%G)  (mod N)
+
+      Therefore:
+        rem*G - div*(N%G) === state*G  (mod N)
+
+      Add N if necessary so that the result is between 1 and N-1.
+  */
+  unsigned div = *state / (N / G);  /* max : 2,147,483,646 / 44,488 = 48,271 */
+  unsigned rem = *state % (N / G);  /* max : 2,147,483,646 % 44,488 = 44,487 */
+
+  unsigned a = rem * G;        /* max : 44,487 * 48,271 = 2,147,431,977 */
+  unsigned b = div * (N % G);  /* max : 48,271 * 3,399 = 164,073,129 */
+
+  return *state = (a > b) ? (a - b) : (a + (N - b));
+}
+
+unsigned next_random() {
+  // return lcg_parkmiller(&random_seed);
+  return 100;
+}
+
+int
+total_tickets() {
+  int total = 0;
+  for(struct proc *p = proc; p < &proc[NPROC]; p++) {
+    acquire(&p->lock);
+    if(p->state == RUNNABLE){
+      total += p->tickets;
+    }
+    release(&p->lock);
+  }
+  return total;
+}
+
 void
 scheduler(void)
 {
-    struct cpu *c = mycpu();
-    struct proc *p;
-    struct proc *selectedProcess = 0;  //Struct to save the selected process
-    int golden_ticket;                 //Save the number of the tickets selected in order to get the selected process
-    int all_tickets = 0;               //Save all tickets
+  struct proc *p;
+  struct cpu *c = mycpu();
 
-    c->proc = 0;
+  c->proc = 0;
+  for(;;){
+    // Avoid deadlock by ensuring that devices can interrupt.
+    intr_on();
 
-    for(;;){
-        // Avoid deadlock by ensuring that devices can interrupt.
-        intr_on();
+    int winner_ticket = next_random() % (total_tickets() + 1);
 
-        for(p = proc; p < &proc[NPROC]; p++) {
-            acquire(&p->lock);
-            if(p->state == RUNNABLE)
-                all_tickets += p->tickets;
+    struct proc* winner = 0;
+    for(p = proc; p < &proc[NPROC]; p++) {
+      acquire(&p->lock);
+      if(p->state == RUNNABLE){
+        winner_ticket -= p->tickets;
+        if(winner_ticket <= 1 && !winner) {
+          winner = p;
         }
-
-        //If there is no tickets scheduler process continues running
-        if(all_tickets>0){
-            golden_ticket = randomrange(1, all_tickets);
-            for(p = proc; p < &proc[NPROC]; p++) {
-                if(p->state == RUNNABLE) golden_ticket = golden_ticket - p->tickets;
-                if(golden_ticket<=0){
-                    selectedProcess = p;
-                    break;
-                }
-            }
-
-            //Release all the process locks but not the one of the process selected
-            for(p = proc; p < &proc[NPROC]; p++) {
-                if(p->pid != selectedProcess->pid) release(&p->lock);
-            }
-
-            // Switch to chosen process.
-            selectedProcess->state = RUNNING;
-            selectedProcess->ticks = selectedProcess->ticks+1;
-            c->proc = selectedProcess;
-            swtch(&c->context, &selectedProcess->context);
-
-            // Process is done running for now.
-            // It should have changed its p->state before coming back.
-            c->proc = 0;
-
-            release(&selectedProcess->lock);
-        }else{
-            for(p = proc; p < &proc[NPROC]; p++) {
-                release(&p->lock);
-            }
-        }
+      }
+      if(p != winner){
+        release(&p->lock);
+      }
     }
+
+    if(winner){
+      // Switch to chosen process.  It is the process's job
+      // to release its lock and then reacquire it
+      // before jumping back to us.
+      winner->state = RUNNING;
+      c->proc = winner;
+
+      acquire(&tickslock);
+      int last_ran = ticks;
+      release(&tickslock);
+
+      swtch(&c->context, &winner->context);
+
+      acquire(&tickslock);
+      winner->ticks += ticks - last_ran;
+      release(&tickslock);
+
+      // Process is done running for now.
+      // It should have changed its p->state before coming back.
+      c->proc = 0;
+
+      release(&winner->lock);
+    }
+  }
 }
 
 // Switch to scheduler.  Must hold only p->lock
