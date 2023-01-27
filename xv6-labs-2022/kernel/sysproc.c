@@ -97,11 +97,11 @@ sys_uptime(void)
 uint64
 sys_settickets(void)
 {
-    int tickets_count;
-    argint(0, &tickets_count);
-    if(tickets_count < 1 || tickets_count > MAX_TICKETS)
+    int n;
+    argint(0, &n);
+    if(n < 1 || n > MAX_TICKETS)
         return -1;
-    settickets(tickets_count);
+    settickets(n);
     return 0;
 }
 

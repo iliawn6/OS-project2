@@ -481,7 +481,7 @@ scheduler(void)
         if(all_tickets>0){
             golden_ticket = randomrange(1, all_tickets);
             for(p = proc; p < &proc[NPROC]; p++) {
-                if(p->state == RUNNABLE) golden_ticket -= p->tickets;
+                if(p->state == RUNNABLE) golden_ticket = golden_ticket - p->tickets;
                 if(golden_ticket<=0){
                     selectedProcess = p;
                     break;
@@ -495,7 +495,7 @@ scheduler(void)
 
             // Switch to chosen process.
             selectedProcess->state = RUNNING;
-            selectedProcess->ticks++;
+            selectedProcess->ticks = selectedProcess->ticks+1;
             c->proc = selectedProcess;
             swtch(&c->context, &selectedProcess->context);
 
@@ -743,9 +743,9 @@ int
 getpinfo(uint64 *addr){
     struct proc *p;
     struct pstat ps;
-    int i;
+    int i = 0;
 
-    for(i = 0, p = proc; i < NPROC && p < &proc[NPROC]; i++, p++){
+    for(p = proc; p < &proc[NPROC]; p++){
         acquire(&p->lock);
         if(p->state != UNUSED){
             ps.num_processes++;
@@ -757,6 +757,7 @@ getpinfo(uint64 *addr){
         else{
             ps.inuse[i] = 0;
         }
+        i++;
         release(&p->lock);
     }
 
