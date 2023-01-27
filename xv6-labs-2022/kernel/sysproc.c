@@ -94,26 +94,23 @@ sys_uptime(void)
   return xticks;
 }
 
-int
+uint64
 sys_settickets(void)
 {
     int tickets_count;
-
     argint(0, &tickets_count);
-
     if(tickets_count < 1 || tickets_count > MAX_TICKETS)
         return -1;
-
-    return settickets(tickets_count);
+    settickets(tickets_count);
+    return 0;
 }
 
-int
-sys_getpinfo(void){
-    uint64 struct_addr;
-
-    argaddr(0, &struct_addr);
-
-    getpinfo(struct_addr);
-
-    return 1;
+uint64
+sys_getpinfo(void)
+{
+    uint64 addr;
+    argaddr(0, &addr);
+    if (addr<0)
+        return -1;
+    return getpinfo(&addr);
 }

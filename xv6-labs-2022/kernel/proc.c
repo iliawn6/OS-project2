@@ -6,7 +6,6 @@
 #include "proc.h"
 #include "defs.h"
 #include "pstat.h"
-#include "random.h"
 
 struct cpu cpus[NCPU];
 
@@ -18,6 +17,9 @@ int nextpid = 1;
 struct spinlock pid_lock;
 
 extern void forkret(void);
+
+extern int randomrange(int, int);
+
 static void freeproc(struct proc *p);
 
 extern char trampoline[]; // trampoline.S
@@ -171,6 +173,8 @@ freeproc(struct proc *p)
   p->killed = 0;
   p->xstate = 0;
   p->state = UNUSED;
+  p->ticks = 0;
+  p->tickets = 0;
 }
 
 // Create a user page table for a given process, with no user memory,
@@ -251,6 +255,8 @@ userinit(void)
   safestrcpy(p->name, "initcode", sizeof(p->name));
   p->cwd = namei("/");
 
+  p->tickets = 10;
+
   p->state = RUNNABLE;
 
   release(&p->lock);
@@ -318,13 +324,18 @@ fork(void)
 
   acquire(&wait_lock);
   np->parent = p;
-  np->tickets = p->tickets;
-  np->ticks = 0;
-  //TODO: check
   release(&wait_lock);
 
   acquire(&np->lock);
   np->state = RUNNABLE;
+  release(&np->lock);
+
+  acquire(&np->lock);
+  np->tickets = p->tickets; //Set to son process the tickets of its father
+  release(&np->lock);
+
+  acquire(&np->lock);
+  np->ticks = 0;   //Set ticks value to 0
   release(&np->lock);
 
   return pid;
@@ -439,101 +450,67 @@ wait(uint64 addr)
   }
 }
 
-// Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
 // Scheduler never returns.  It loops, doing:
-//  - choose a process to run.
+//  - choose a process to run based on lottery scheduler.
 //  - swtch to start running that process.
 //  - eventually that process transfers control
 //    via swtch back to the scheduler.
 void
 scheduler(void)
 {
-  struct proc *p = myproc();
-  struct cpu *c = mycpu();
-  int count = 0;
-  long golden_ticket = 0;
-  int totalTickets = 0;
-  c->proc = 0;
-
-  for(;;){
-    // Avoid deadlock by ensuring that devices can interrupt.
-    intr_on();
-        acquire(&p->lock);
-        golden_ticket = 0;
-        count = 0;
-
-        totalTickets = 0;
-
-        struct proc *p2;
-
-        //loop over process table and increment total tickets if a runnable process is found
-        for(p2 = proc; p2 < &proc[NPROC]; p2++)
-          {
-            if(p2->state==RUNNABLE){
-                  totalTickets+=p2->tickets;
-            }
-          }
-
-
-      //calculate Total number of tickets for runnable processes
-      //totalTickets = lottery_Total();
-
-      //pick a random ticket from total available tickets
-      golden_ticket = random() % (totalTickets + 1);
-      //TODO: fair random number??
-
-
-      for(p = proc; p < &proc[NPROC]; p++) {
-      //acquire(&p->lock);
-      //TODO: check acquire
-      count += p->tickets;
-      if(p->state == RUNNABLE && count >= golden_ticket ) {
-          //TODO: check if statement
-        // Switch to chosen process.  It is the process's job
-        // to release its lock and then reacquire it
-        // before jumping back to us.
-        p->state = RUNNING;
-        c->proc = p;
-        int start_ticks = ticks;
-
-        swtch(&c->context, &p->context);
-
-        int endTicks = ticks - start_ticks;
-        p->ticks += endTicks;
-
-        //TODO: check endTicks
-
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
-        c->proc = 0;
-      }
-      //release(&p->lock);
-      //TODO: check release
-    }
-    release(&p->lock);
-  }
-}
-
-
-/*
-int
-lottery_Total(void){
+    struct cpu *c = mycpu();
     struct proc *p;
-    int ticketTotal=0;
+    struct proc *selectedProcess = 0;  //Struct to save the selected process
+    int golden_ticket;                 //Save the number of the tickets selected in order to get the selected process
+    int all_tickets = 0;               //Save all tickets
 
-//loop over process table and increment total tickets if a runnable process is found
-    for(p = proc; p < &proc[NPROC]; p++)
-    {
-        if(p->state==RUNNABLE){
-            ticketTotal+=p->tickets;
+    c->proc = 0;
+
+    for(;;){
+        // Avoid deadlock by ensuring that devices can interrupt.
+        intr_on();
+
+        for(p = proc; p < &proc[NPROC]; p++) {
+            acquire(&p->lock);
+            if(p->state == RUNNABLE)
+                all_tickets += p->tickets;
+        }
+
+        //If there is no tickets scheduler process continues running
+        if(all_tickets>0){
+            golden_ticket = randomrange(1, all_tickets);
+            for(p = proc; p < &proc[NPROC]; p++) {
+                if(p->state == RUNNABLE) golden_ticket -= p->tickets;
+                if(golden_ticket<=0){
+                    selectedProcess = p;
+                    break;
+                }
+            }
+
+            //Release all the process locks but not the one of the process selected
+            for(p = proc; p < &proc[NPROC]; p++) {
+                if(p->pid != selectedProcess->pid) release(&p->lock);
+            }
+
+            // Switch to chosen process.
+            selectedProcess->state = RUNNING;
+            selectedProcess->ticks++;
+            c->proc = selectedProcess;
+            swtch(&c->context, &selectedProcess->context);
+
+            // Process is done running for now.
+            // It should have changed its p->state before coming back.
+            c->proc = 0;
+
+            release(&selectedProcess->lock);
+        }else{
+            for(p = proc; p < &proc[NPROC]; p++) {
+                release(&p->lock);
+            }
         }
     }
-
-    return ticketTotal;          // returning total number of tickets for runnable processes
 }
- */
-
 
 // Switch to scheduler.  Must hold only p->lock
 // and have changed proc->state. Saves and restores
@@ -746,45 +723,45 @@ procdump(void)
   }
 }
 
-int
-settickets(int n)
-{
-    acquire(&proc->lock);
-    proc->tickets = n;
-    release(&proc->lock);
-    return 0; // return 0 on success
+void
+settickets(int n){
+    struct proc *p;
+    int i = 0;
+
+    myproc()->tickets = n;
+
+    for(p = proc; p < &proc[NPROC]; p++) {
+        if(p->pid == myproc()->pid){
+            proc[i].tickets = n;
+            break;
+        }
+        i++;
+    }
 }
 
 int
-getpinfo(uint64 ps_address){
+getpinfo(uint64 *addr){
     struct proc *p;
-    struct pstat *ps;
+    struct pstat ps;
     int i;
 
-    //Populate the pstat structure with process information
     for(i = 0, p = proc; i < NPROC && p < &proc[NPROC]; i++, p++){
-        //Set inuse or not
         acquire(&p->lock);
         if(p->state != UNUSED){
-            ps->num_processes++;
-            ps->inuse[i] = 1; //Process is in use
+            ps.num_processes++;
+            ps.inuse[i] = 1;
+            ps.tickets[i] = p->tickets;
+            ps.pid[i] = p->pid;
+            ps.ticks[i] = p->ticks;
         }
         else{
-            ps->inuse[i] = 0; //Process is not in use
+            ps.inuse[i] = 0;
         }
-
-        //Set number of tickets assigned to the process
-        ps->tickets[i] = p->tickets;
-        //Set the PID
-        ps->pid[i] = p->pid;
-        //Set the number of ticks
-        ps->ticks[i] = p->ticks;
         release(&p->lock);
     }
 
-    if(copyout(myproc()->pagetable, ps_address, (char *)&ps, sizeof(ps)) < 0)
+    if(copyout(myproc()->pagetable, *addr, (char *)&ps, sizeof(ps)) < 0)
         return -1;
-
 
     return 0;
 }

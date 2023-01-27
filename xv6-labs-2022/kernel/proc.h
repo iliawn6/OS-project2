@@ -108,5 +108,4 @@ struct proc {
     char name[16];               // Process name (debugging)
     int tickets;                 // Number of tickets
     int ticks;                   // Number of times the process has been scheduled since creation
-
 };

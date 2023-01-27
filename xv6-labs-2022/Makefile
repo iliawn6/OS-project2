@@ -189,7 +189,7 @@ UPROGS=\
 	$U/_grind\
 	$U/_wc\
 	$U/_zombie\
-	$U/_lotteryGetPinfoTest\
+	$U/_testtickets\
 
 ifeq ($(LAB),$(filter $(LAB), lock))
 UPROGS += \

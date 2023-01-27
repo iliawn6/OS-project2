@@ -1,7 +1,3 @@
-/* The following code is added by Justine George JXG210092, Gautham Shaji GXS210034
- */
-// Contains the definition of structure pstat. It is used to gather statistics about the running
-// processes
 #ifndef _PSTAT_H_
 #define _PSTAT_H_
 
@@ -16,4 +12,3 @@ struct pstat {
 };
 
 #endif // _PSTAT_H_
-/* End of code added */
